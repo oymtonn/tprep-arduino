@@ -2,9 +2,7 @@
 #include "WiFiS3.h" // wifi lib
 #include "page.h" // page UI
 
-// define variables
-double setpoint, input, output;
-
+// wifi network
 char ssid[] = "wheelchairbrake";
 char pass[] = "password";   
 int keyIndex = 0; 
@@ -15,13 +13,20 @@ WiFiServer server(80);
 // control state
 const int SPEED_MIN = 0;
 const int SPEED_MAX = 5;
-int targetSpeed = 1;   // what the slider is ini set to
+int targetSpeed = 1;   // speed user wants
+
+// HE sensor
+const int hallDigitalPin = 7;
+int hallDigital; // output
 
 void setup() {
-  // initialize PID variables
 
+  ////////////////////////////////
+  //                            //
+  //        Server Setup        //
+  //                            //
+  ////////////////////////////////
 
-  // Access Point setup
   Serial.begin(9600); // initialize serial comm
   while (!Serial) {
     ; // wait for serial port to connect
@@ -65,6 +70,13 @@ void setup() {
 }
 
 void loop() {
+
+  ////////////////////////////////
+  //                            //
+  //      Network Requests      //
+  //                            //
+  ////////////////////////////////
+
   // Check whether WiFi connection status changed
   if (status != WiFi.status()) {
     status = WiFi.status();
@@ -115,10 +127,22 @@ void loop() {
     Serial.println("Client disconnected");
   }
 
-  // PID Controls
+  ////////////////////////////////
+  //                            //
+  //        HE Velocity         //
+  //                            //
+  ////////////////////////////////
+
+  hallDigital = digitalRead(hallDigitalPin);
+  
 }
 
-// routing
+  ////////////////////////////////
+  //                            //
+  //          Routing           //
+  //                            //
+  ////////////////////////////////
+
 
 void handleRequest(WiFiClient &client, String req) {
   Serial.print("REQ: ");
