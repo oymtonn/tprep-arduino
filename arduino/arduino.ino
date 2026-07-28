@@ -30,7 +30,7 @@ int targetSpeed = 1;   // what the slider is ini set to
 Servo motor;
 
 const int pinServo = 9; //Position of servo's info pin
-int servoPos = 0; //Initialize the servo's initial position
+double servoPos = 0; //Initialize the servo's initial position
 int servoWriteDelay = 15;
 
 ////////////////////////////////
@@ -41,8 +41,8 @@ int servoWriteDelay = 15;
 
 const int pinHallEffect = 8; //Hall effect sensor's pin
 
-float velocityRot = 0; //Wheel's rotational velocity in rad/s
-float velocityTrans = 0; //PID's input; Translational velocity at this current instant in m/s.
+double velocityRot = 0; //Wheel's rotational velocity in rad/s
+double velocityTrans = 0; //PID's input; Translational velocity at this current instant in m/s.
 
 const float diameterWheel = 50; //Wheel's diameter
 volatile unsigned int pulseCount = 0; //The amount of times the hall effect sensor detects an input
@@ -53,7 +53,7 @@ volatile unsigned int pulseCount = 0; //The amount of times the hall effect sens
 //                            //
 ////////////////////////////////
 
-float velocityTransMax = 1; //PID's setpoint; Max speed that the PID controller is trying to reach in m/s
+double velocityTransMax = 1; //PID's setpoint; Max speed that the PID controller is trying to reach in m/s
 
 double Kp=2, Ki=5, Kd=1; //PID parameters; Proportion, integral, and derivative as scalars
 PID myPID(&velocityTrans, &servoPos, &velocityTransMax, Kp, Ki, Kd, DIRECT); //Initialize the PID controller
@@ -66,7 +66,7 @@ void setup() {
   ////////////////////////////////
   
   motor.attach(pinServo); //Initializes the servo's pin
-  motor.write(0) //Forces the servo to the minimum position (THIS MIGHT BE REDUNDANT PLEASE VERIFY)
+  motor.write(0); //Forces the servo to the minimum position (THIS MIGHT BE REDUNDANT PLEASE VERIFY)
 
   ////////////////////////////////
   //                            //
