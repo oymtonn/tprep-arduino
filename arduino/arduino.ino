@@ -1,17 +1,21 @@
 #include <PID_v1.h> // PID library by Brett Beauregard
 #include "WiFiS3.h" // wifi lib
+#include "page.h" // page UI
 
 // define variables
 double setpoint, input, output;
 
 char ssid[] = "wheelchairbrake";
-char pass[] = "wheelchairbrake111";   
+char pass[] = "password";   
 int keyIndex = 0; 
 
 int status = WL_IDLE_STATUS;
 WiFiServer server(80);
 
-// ui components on arduino client
+// control state
+const int SPEED_MIN = 0;
+const int SPEED_MAX = 5;
+int targetSpeed = 1;   // what the slider is ini set to
 
 void setup() {
   // initialize PID variables
@@ -81,49 +85,29 @@ void loop() {
     Serial.println("New client");
 
     String currentLine = "";
+    String reqLine = "";        // holds get request
+    unsigned long start = millis();
 
     while (client.connected()) {
-      delayMicroseconds(10);
+      // don't hang forever on a phone that opens a socket and goes quiet
+      if (millis() - start > 2000) break;
 
       if (client.available()) {
         char c = client.read();
-        Serial.write(c);
 
         if (c == '\n') {
           // Blank line means the HTTP request has ended
           if (currentLine.length() == 0) {
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-Type: text/html");
-            client.println("Connection: close");
-            client.println();
-
-            client.println("<!DOCTYPE html>");
-            client.println("<html>");
-            client.println("<body>");
-            client.println(
-              "<p style=\"font-size:7vw;\">"
-              "Click <a href=\"/H\">here</a> to turn the LED on"
-              "</p>"
-            );
-            client.println(
-              "<p style=\"font-size:7vw;\">"
-              "Click <a href=\"/L\">here</a> to turn the LED off"
-              "</p>"
-            );
-            client.println("</body>");
-            client.println("</html>");
-
+            handleRequest(client, reqLine);
             break;
           } else {
+            // first line of the request is the one with the route in it
+            if (reqLine.length() == 0) reqLine = currentLine;
             currentLine = "";
           }
         } else if (c != '\r') {
           currentLine += c;
         }
-
-        // do things, based on get request
-        // if (currentLine.endsWith("GET /H")) { ... }
-        // if (currentLine.endsWith("GET /L")) { ... }
       }
     }
 
@@ -132,6 +116,53 @@ void loop() {
   }
 
   // PID Controls
+}
+
+// routing
+
+void handleRequest(WiFiClient &client, String req) {
+  Serial.print("REQ: ");
+  Serial.println(req);
+
+  // set speed from get req
+  if (req.startsWith("GET /set")) {
+    int i = req.indexOf("v=");
+    if (i >= 0) {
+      int v = req.substring(i + 2).toInt();
+      targetSpeed = constrain(v, SPEED_MIN, SPEED_MAX); // speed must be between 0-5
+      Serial.print("target speed = ");
+      Serial.println(targetSpeed);
+    }
+    sendPlain(client, String(targetSpeed));
+
+  } else if (req.startsWith("GET /state")) {
+    sendPlain(client, String(targetSpeed));
+
+  } else {
+    sendPage(client);
+  }
+}
+
+// display original page
+void sendPage(WiFiClient &client) {
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-Type: text/html");
+  client.print("Content-Length: ");
+  client.println(strlen(PAGE_HTML));
+  client.println("Connection: close");
+  client.println();
+  client.print(PAGE_HTML);
+}
+
+// display updated page
+void sendPlain(WiFiClient &client, String body) {
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-Type: text/plain");
+  client.print("Content-Length: ");
+  client.println(body.length());
+  client.println("Connection: close");
+  client.println();
+  client.print(body);
 }
 
 void printWiFiStatus() {
