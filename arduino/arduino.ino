@@ -16,11 +16,6 @@ int keyIndex = 0;
 int status = WL_IDLE_STATUS;
 WiFiServer server(80);
 
-// control state
-const int SPEED_MIN = 0;
-const int SPEED_MAX = 5;
-int targetSpeed = 1;   // what the slider is ini set to
-
 ////////////////////////////////
 //                            //
 //      Servo Variables       //
@@ -39,13 +34,17 @@ int servoWriteDelay = 15;
 //                            //
 ////////////////////////////////
 
-const int pinHallEffect = 8; //Hall effect sensor's pin
+const int pinHallEffect = 2; //Hall effect sensor's pin, code will automatically run when this voltage changes to get accurate counts
 
 double velocityRot = 0; //Wheel's rotational velocity in rad/s
 double velocityTrans = 0; //PID's input; Translational velocity at this current instant in m/s.
 
-const float diameterWheel = 50; //Wheel's diameter
-volatile unsigned int pulseCount = 0; //The amount of times the hall effect sensor detects an input
+const float diameterWheel = 0.05; //Wheel's diameter (m)
+
+volatile unsigned long lastPulseTime = 0; // most recent HE detection
+volatile unsigned long period = 0; // Time between the last two HE detections
+const unsigned int TIMEOUT = 2000000; // max amount of time the wheel doesn't revolve (2 seconds)
+
 
 ////////////////////////////////
 //                            //
@@ -53,10 +52,10 @@ volatile unsigned int pulseCount = 0; //The amount of times the hall effect sens
 //                            //
 ////////////////////////////////
 
-double velocityTransMax = 1; //PID's setpoint; Max speed that the PID controller is trying to reach in m/s
+double velocityTransTarget = 1; //PID's setpoint; Max speed that the PID controller is trying to reach in m/s
 
 double Kp=2, Ki=5, Kd=1; //PID parameters; Proportion, integral, and derivative as scalars
-PID myPID(&velocityTrans, &servoPos, &velocityTransMax, Kp, Ki, Kd, DIRECT); //Initialize the PID controller
+PID myPID(&velocityTrans, &servoPos, &velocityTransTarget, Kp, Ki, Kd, DIRECT); //Initialize the PID controller
 
 void setup() {
   ////////////////////////////////
@@ -74,7 +73,8 @@ void setup() {
   //                            //
   ////////////////////////////////
   
-  //For the hall effect sensor
+  pinMode(pinHallEffect, INPUT);
+  attachInterrupt(digitalPinToInterrupt(pinHallEffect), checkPulse, FALLING); // interrupt process to check pulse, runs whenever voltage falls in pin2
 
   ////////////////////////////////
   //                            //
@@ -203,9 +203,17 @@ void loop() {
   //                            //
   ////////////////////////////////
 
-  //Read the wheel's pulse count and elapsed time
-  //Convert read data to rotational velocity
-  velocityTrans = velocityRot * (diameterWheel / 2);//Convert rotational velocity to translational velocity in m/s
+  velocityTrans = getSpeed();
+
+  // test print
+  static unsigned long lastPrint = 0;
+  if (millis() - lastPrint >= 200) {
+    lastPrint = millis();
+    Serial.print(velocityTrans);
+    Serial.print(" m/s     ");
+    Serial.print((velocityTrans * 3600) / 1609.34); // conv to mph
+    Serial.println(" mph");
+  }
 
   ////////////////////////////////
   //                            //
@@ -219,7 +227,11 @@ void loop() {
 
 }
 
-// routing
+  ////////////////////////////////
+  //                            //
+  //          Routing           //
+  //                            //
+  ////////////////////////////////
 
 void handleRequest(WiFiClient &client, String req) {
   Serial.print("REQ: ");
@@ -230,18 +242,48 @@ void handleRequest(WiFiClient &client, String req) {
     int i = req.indexOf("v=");
     if (i >= 0) {
       int v = req.substring(i + 2).toInt();
-      targetSpeed = constrain(v, SPEED_MIN, SPEED_MAX); // speed must be between 0-5
+      velocityTransTarget = (v * 1609.34) / 3600; // conv to m/s
       Serial.print("target speed = ");
-      Serial.println(targetSpeed);
+      Serial.println(velocityTransTarget);
     }
-    sendPlain(client, String(targetSpeed));
+    sendPlain(client, String(velocityTransTarget));
 
   } else if (req.startsWith("GET /state")) {
-    sendPlain(client, String(targetSpeed));
+    sendPlain(client, String(velocityTransTarget));
 
   } else {
     sendPage(client);
   }
+}
+
+////////////////////////////////
+//                            //
+//         HE Helpers         //
+//                            //
+////////////////////////////////
+
+// set pulse variables
+void checkPulse(){
+  unsigned long currentTime = micros();
+  unsigned long downTime = currentTime - lastPulseTime;
+
+  if (downTime < 2000){ // false pulse if quicker than 2ms
+    return;
+  }
+  lastPulseTime = currentTime;
+  period = downTime;
+}
+
+// Estimates the current speed AT each sensor detection rather than calculating speed every second, for quicker updates
+
+float getSpeed(){
+
+  if (period == 0 || micros() - lastPulseTime > TIMEOUT) { // no input yet, or wheel stopped
+    return 0;
+  }
+
+  float turnsPerSecond = 1000000.0 / (float)period; // estimates turns per second based on how long the last rotation took
+  return turnsPerSecond * diameterWheel * 3.14159; // m/s
 }
 
 // display original page

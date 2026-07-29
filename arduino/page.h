@@ -153,8 +153,8 @@ const char PAGE_HTML[] = R"rawliteral(
   </div>
 
   <div class="labels" id="lb">
-    <span>0</span><span>1</span><span>2</span>
-    <span>3</span><span>4</span><span>5</span>
+    <span>0 mph</span><span>1 mph</span><span>2 mph</span>
+    <span>3 mph</span><span>4 mph</span><span>5 mph</span>
   </div>
 
   <div class="slider">
