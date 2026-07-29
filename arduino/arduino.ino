@@ -52,9 +52,10 @@ const unsigned int TIMEOUT = 2000000; // max amount of time the wheel doesn't re
 //                            //
 ////////////////////////////////
 
-double velocityTransTarget = 1; //PID's setpoint; Max speed that the PID controller is trying to reach in m/s
+//double velocityTransServo = 0; //Not the actual device's translational velocity, but the value read by the servo.
+double velocityTransTarget = 0.1; //PID's setpoint; Max speed that the PID controller is trying to reach in m/s
 
-double Kp=2, Ki=5, Kd=1; //PID parameters; Proportion, integral, and derivative as scalars
+double Kp=25, Ki=5, Kd=25; //PID parameters; Proportion, integral, and derivative as scalars
 PID myPID(&velocityTrans, &servoPos, &velocityTransTarget, Kp, Ki, Kd, DIRECT); //Initialize the PID controller
 
 void setup() {
@@ -212,7 +213,10 @@ void loop() {
     Serial.print(velocityTrans);
     Serial.print(" m/s     ");
     Serial.print((velocityTrans * 3600) / 1609.34); // conv to mph
-    Serial.println(" mph");
+    Serial.print(" mph     Target speed: ");
+    Serial.print((velocityTransTarget * 3600) / 1609.34);
+    Serial.print("\t ServoPos =");
+    Serial.println(servoPos);
   }
 
   ////////////////////////////////
@@ -221,7 +225,14 @@ void loop() {
   //                            //
   ////////////////////////////////
 
-  myPID.Compute(); //Compares the current translational velocity to the target maximum and queues a new servo rotation accordingly
+  if (velocityTrans > velocityTransTarget)
+  {
+    myPID.Compute(); //Compares the current translational velocity to the target maximum and queues a new servo rotation accordingly
+  }
+  else
+  {
+    servoPos = 0;
+  }
   analogWrite(pinServo, servoPos); //Send new servo rotation to servo
   //This functionality might need a delay without pause (DO NOT USE delay() because it pauses the whole program)
 

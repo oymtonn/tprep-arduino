@@ -5,7 +5,7 @@ const char PAGE_HTML[] = R"rawliteral(
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <title>Descent Brake</title>
+  <title>Roll Steady</title>
   <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -144,7 +144,7 @@ const char PAGE_HTML[] = R"rawliteral(
 </head>
 <body ontouchstart="">
 
-  <h1>Descent Brake</h1>
+  <h1>Roll Steady</h1>
   <p class="sub">Set your target speed below</p>
 
   <div class="value">
