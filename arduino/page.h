@@ -1,5 +1,3 @@
-#pragma once
-
 const char PAGE_HTML[] = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -19,6 +17,8 @@ const char PAGE_HTML[] = R"rawliteral(
       user-select: none;
     }
 
+    /* ---- header ---- */
+
     h1 {
       margin: 0;
       font-size: 17px;
@@ -32,7 +32,9 @@ const char PAGE_HTML[] = R"rawliteral(
       text-align: center;
     }
 
-    .value { text-align: center; margin-bottom: 44px; }
+    /* ---- readouts ---- */
+
+    .value { text-align: center; }
     .value b {
       display: block;
       font-size: 40px;
@@ -40,7 +42,46 @@ const char PAGE_HTML[] = R"rawliteral(
       letter-spacing: -0.02em;
       font-variant-numeric: tabular-nums;
     }
-    .value span { font-size: 12px; color: #999; }
+    .value span {
+      display: block;
+      margin-top: 4px;
+      font-size: 12px;
+      color: #999;
+    }
+
+    /* live speed, above the slider */
+    .value.now { margin-bottom: 44px; }
+
+    /* target speed, below the slider */
+    .value.target { margin-top: 26px; margin-bottom: 10px;}
+    .value.target b { font-size: 26px; color: #000; }
+
+    /* editable target box */
+    .value.target input {
+      display: block;
+      width: 100px;
+      margin: 0 auto;
+      padding: 2px 0;
+      border: 0;
+      border-bottom: 2px solid #111;
+      background: none;
+      font: inherit;
+      font-size: 26px;
+      font-weight: 500;
+      text-align: center;
+      color: #000;
+      font-variant-numeric: tabular-nums;
+      -moz-appearance: textfield;
+    }
+    .value.target input:focus {
+      outline: none;
+      border-bottom-color: #999;
+    }
+    .value.target input::-webkit-outer-spin-button,
+    .value.target input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
 
     /* ---- slider ---- */
 
@@ -110,6 +151,7 @@ const char PAGE_HTML[] = R"rawliteral(
       padding: 17px;
       border: 0;
       border-radius: 8px;
+      margin-bottom:20px;
       font: inherit;
       font-weight: 500;
       background: #111;
@@ -133,10 +175,12 @@ const char PAGE_HTML[] = R"rawliteral(
     }
     .ghost:active { background: #111; color: #fff; }
 
-    .apply-row { margin-top: 56px; }
+    /* ---- layout ---- */
+
+    .apply-row { margin-top: 36px; }
 
     .halt-row {
-      margin-top: 96px;
+      margin-top: 50px;
       padding-top: 28px;
       border-top: 1px solid #eee;
     }
@@ -145,16 +189,16 @@ const char PAGE_HTML[] = R"rawliteral(
 <body ontouchstart="">
 
   <h1>Roll Steady</h1>
-  <p class="sub">Set your target speed below</p>
 
-  <div class="value">
-    <b id="o">1</b>
-    <span id="act">Target speed</span>
+  <div class="value now">
+    <span id="status">Current speed</span>
+    <b id="cur">0.0</b>
+    <p>mph</p>
   </div>
 
   <div class="labels" id="lb">
-    <span>0 mph</span><span>1 mph</span><span>2 mph</span>
-    <span>3 mph</span><span>4 mph</span><span>5 mph</span>
+    <span>0</span><span>1</span><span>2</span>
+    <span>3</span><span>4</span><span>5</span>
   </div>
 
   <div class="slider">
@@ -163,11 +207,17 @@ const char PAGE_HTML[] = R"rawliteral(
     <div class="dots" id="d">
       <i></i><i></i><i></i><i></i><i></i><i></i>
     </div>
-    <input type="range" id="r" min="0" max="5" step="1" value="1">
+    <input type="range" id="r" min="0" max="5" step="0.5" value="1">
+  </div>
+
+  <div class="value target">
+    <span>Target speed</span>
+    <input type="number" id="o" min="0" max="5" step="0.1" value="1" inputmode="decimal">
+    <p>mph</p>
   </div>
 
   <div class="apply-row">
-    <button class="btn" onclick="send(r.value)">Apply</button>
+    <button class="btn" onclick="send(o.value)">Apply</button>
   </div>
 
   <div class="halt-row">
@@ -176,10 +226,14 @@ const char PAGE_HTML[] = R"rawliteral(
 
   <script>
     var r = document.getElementById('r');
+    var o = document.getElementById('o');
 
-    function draw() {
+    // the real target, to 0.1 mph. the slider is only a coarse view of it.
+    var target = 1;
+
+    // repaint the fill, dots and labels from the slider's own position
+    function drawBar() {
       var v = +r.value, p = (v - r.min) / (r.max - r.min);
-      document.getElementById('o').textContent = v;
       document.getElementById('f').style.width =
         'calc(14px + (100% - 28px) * ' + p + ')';
       var d = document.getElementById('d').children,
@@ -190,29 +244,69 @@ const char PAGE_HTML[] = R"rawliteral(
       }
     }
 
-    function mark(v) {
-      document.getElementById('act').textContent = ""
+    // store a new target and park the slider on the nearest half step
+    function setTarget(v) {
+      if (isNaN(v)) return;
+      v = Math.min(5, Math.max(0, v));
+      target = Math.round(v * 10) / 10;       // 0.1 grid
+      r.value = Math.round(target * 2) / 2;   // slider snaps to 0.5
+      drawBar();
+    }
+
+    var synced = false;
+
+    // the Arduino replies with "target_mph,current_mph"  e.g. "1.3,0.8"
+    function apply(t) {
+      var p = t.split(',');
+      document.getElementById('cur').textContent = p[1];
+      document.getElementById('status').textContent = 'Current speed';
+
+      // only adopt the Arduino's target once, on first load
+      if (!synced) {
+        setTarget(parseFloat(p[0]));
+        o.value = target;
+        synced = true;
+      }
+    }
+
+    function fail() {
+      document.getElementById('status').textContent = 'No response';
     }
 
     function send(v) {
-      r.value = v;
-      draw();
-      fetch('/set?v=' + v)
-        .then(function (x) { return x.text(); })
-        .then(mark)
-        .catch(function () {
-          document.getElementById('act').textContent = 'No response';
-        });
+      setTarget(parseFloat(v));
+      o.value = target;
+      fetch('/set?v=' + target).then(function (x) { return x.text(); })
+        .then(apply).catch(fail);
     }
 
-    // pull the value the Arduino is actually holding
-    fetch('/state')
-      .then(function (x) { return x.text(); })
-      .then(function (t) { r.value = t; draw(); mark(t); })
-      .catch(function () {});
+    function poll() {
+      fetch('/state').then(function (x) { return x.text(); })
+        .then(apply).catch(fail);
+    }
 
-    r.addEventListener('input', draw);
-    draw();
+    // slider dragged -> coarse target, box follows
+    r.addEventListener('input', function () {
+      setTarget(+r.value);
+      o.value = target;
+    });
+
+    // box typed -> fine target, slider follows but the box is left alone
+    o.addEventListener('input', function () {
+      setTarget(parseFloat(o.value));
+    });
+
+    // on leaving the box, show the stored target (not the slider's rounding)
+    o.addEventListener('blur', function () { o.value = target; });
+
+    o.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { o.blur(); send(target); }
+    });
+
+    o.value = target;
+    drawBar();
+    poll();
+    setInterval(poll, 400);
   </script>
 
 </body>

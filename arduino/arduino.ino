@@ -55,8 +55,8 @@ const unsigned int TIMEOUT = 2000000; // max amount of time the wheel doesn't re
 //double velocityTransServo = 0; //Not the actual device's translational velocity, but the value read by the servo.
 double velocityTransTarget = 0.1; //PID's setpoint; Max speed that the PID controller is trying to reach in m/s
 
-double Kp=25, Ki=5, Kd=25; //PID parameters; Proportion, integral, and derivative as scalars
-PID myPID(&velocityTrans, &servoPos, &velocityTransTarget, Kp, Ki, Kd, DIRECT); //Initialize the PID controller
+double Kp=10, Ki=5, Kd=25; //PID parameters; Proportion, integral, and derivative as scalars
+PID myPID(&velocityTrans, &servoPos, &velocityTransTarget, Kp, Ki, Kd, REVERSE); //Initialize the PID controller
 
 void setup() {
   ////////////////////////////////
@@ -83,6 +83,7 @@ void setup() {
   //                            //
   ////////////////////////////////
 
+  //myPID.SetOutputLimits(0, 180);
   myPID.SetMode(AUTOMATIC); //Turns the PID controller on
 
   ////////////////////////////////
@@ -214,7 +215,7 @@ void loop() {
     Serial.print(" m/s     ");
     Serial.print((velocityTrans * 3600) / 1609.34); // conv to mph
     Serial.print(" mph     Target speed: ");
-    Serial.print((velocityTransTarget * 3600) / 1609.34);
+    Serial.print((velocityTransTarget * 3600) / 1609.34); // conv to mph
     Serial.print("\t ServoPos =");
     Serial.println(servoPos);
   }
@@ -225,15 +226,16 @@ void loop() {
   //                            //
   ////////////////////////////////
 
-  if (velocityTrans > velocityTransTarget)
-  {
-    myPID.Compute(); //Compares the current translational velocity to the target maximum and queues a new servo rotation accordingly
-  }
-  else
-  {
-    servoPos = 0;
-  }
-  analogWrite(pinServo, servoPos); //Send new servo rotation to servo
+  // if (velocityTrans > velocityTransTarget)
+  // {
+  //   myPID.Compute(); //Compares the current translational velocity to the target maximum and queues a new servo rotation accordingly
+  // }
+  // else
+  // {
+  //   servoPos = 0;
+  // }
+  myPID.Compute();
+  motor.write(servoPos); //Send new servo rotation to servo
   //This functionality might need a delay without pause (DO NOT USE delay() because it pauses the whole program)
 
 }
@@ -252,15 +254,15 @@ void handleRequest(WiFiClient &client, String req) {
   if (req.startsWith("GET /set")) {
     int i = req.indexOf("v=");
     if (i >= 0) {
-      int v = req.substring(i + 2).toInt();
-      velocityTransTarget = (v * 1609.34) / 3600; // conv to m/s
+      float v = constrain(req.substring(i + 2).toFloat(), 0.0, 5.0);
+      velocityTransTarget = (v * 1609.34) / 3600; // conv from mph to m/s
       Serial.print("target speed = ");
       Serial.println(velocityTransTarget);
     }
-    sendPlain(client, String(velocityTransTarget));
+    sendState(client);;
 
   } else if (req.startsWith("GET /state")) {
-    sendPlain(client, String(velocityTransTarget));
+    sendState(client);
 
   } else {
     sendPage(client);
@@ -317,6 +319,11 @@ void sendPlain(WiFiClient &client, String body) {
   client.println("Connection: close");
   client.println();
   client.print(body);
+}
+
+void sendState(WiFiClient &client) {
+  String body = String((velocityTransTarget * 3600) / 1609.34, 1) + "," + String((velocityTrans * 3600) / 1609.34, 1); // send target speed and current speed
+  sendPlain(client, body);
 }
 
 void printWiFiStatus() {
