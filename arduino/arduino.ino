@@ -55,7 +55,7 @@ const unsigned int TIMEOUT = 2000000; // max amount of time the wheel doesn't re
 //double velocityTransServo = 0; //Not the actual device's translational velocity, but the value read by the servo.
 double velocityTransTarget = 0.1; //PID's setpoint; Max speed that the PID controller is trying to reach in m/s
 
-double Kp=10, Ki=5, Kd=25; //PID parameters; Proportion, integral, and derivative as scalars
+double Kp=3.5, Ki=0.5, Kd=0.75; //PID parameters; Proportion, integral, and derivative as scalars
 PID myPID(&velocityTrans, &servoPos, &velocityTransTarget, Kp, Ki, Kd, DIRECT); //Initialize the PID controller
 
 void setup() {
@@ -85,6 +85,7 @@ void setup() {
 
   //myPID.SetOutputLimits(0, 180);
   myPID.SetMode(AUTOMATIC); //Turns the PID controller on
+  myPID.SetOutputLimits(0, 180);
 
   ////////////////////////////////
   //                            //
@@ -226,15 +227,15 @@ void loop() {
   //                            //
   ////////////////////////////////
 
-  // if (velocityTrans > velocityTransTarget)
-  // {
-  //   myPID.Compute(); //Compares the current translational velocity to the target maximum and queues a new servo rotation accordingly
-  // }
-  // else
-  // {
-  //   servoPos = 0;
-  // }
-  myPID.Compute();
+  if (velocityTrans > velocityTransTarget)
+  {
+    myPID.Compute(); //Compares the current translational velocity to the target maximum and queues a new servo rotation accordingly
+  }
+  else
+  {
+    servoPos = 180;
+  }
+  // myPID.Compute();
   motor.write(servoPos); //Send new servo rotation to servo
   //This functionality might need a delay without pause (DO NOT USE delay() because it pauses the whole program)
 
