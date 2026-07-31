@@ -10,8 +10,8 @@ const char PAGE_HTML[] = R"rawliteral(
     body {
       margin: 0;
       padding: 40px 24px;
-      background: #fff;
-      color: #111;
+      background: #F5F5F5;
+      color: #000;
       font: 400 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       -webkit-user-select: none;
       user-select: none;
@@ -154,7 +154,7 @@ const char PAGE_HTML[] = R"rawliteral(
       margin-bottom:20px;
       font: inherit;
       font-weight: 500;
-      background: #111;
+      background: #070838;
       color: #fff;
       box-shadow: 0 4px 0 #000;
       transform: translateY(0);

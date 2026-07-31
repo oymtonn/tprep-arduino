@@ -25,7 +25,7 @@ WiFiServer server(80);
 Servo motor;
 
 const int pinServo = 9; //Position of servo's info pin
-double servoPos = 0; //Initialize the servo's initial position
+double servoPos = 180; //Initialize the servo's initial position
 int servoWriteDelay = 15;
 
 ////////////////////////////////
@@ -56,7 +56,7 @@ const unsigned int TIMEOUT = 2000000; // max amount of time the wheel doesn't re
 double velocityTransTarget = 0.1; //PID's setpoint; Max speed that the PID controller is trying to reach in m/s
 
 double Kp=10, Ki=5, Kd=25; //PID parameters; Proportion, integral, and derivative as scalars
-PID myPID(&velocityTrans, &servoPos, &velocityTransTarget, Kp, Ki, Kd, REVERSE); //Initialize the PID controller
+PID myPID(&velocityTrans, &servoPos, &velocityTransTarget, Kp, Ki, Kd, DIRECT); //Initialize the PID controller
 
 void setup() {
   ////////////////////////////////
